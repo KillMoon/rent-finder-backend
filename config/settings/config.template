@@ -1,0 +1,86 @@
+
+import os
+import sys
+
+from .common import *
+
+DEBUG = os.getenv("DEBUG", "{{$.app_debug}}".lower() == "true")
+
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+
+FRONTEND_URL = "{{$.frontend_url}}"
+
+# ------------------------------------------------------------------------------
+# DATABASES - PostgreSQL
+# ------------------------------------------------------------------------------
+DATABASES = {
+    "default": {
+        "ENGINE": "django.contrib.gis.db.backends.postgis",
+        "NAME": "{{$.rds_db_name}}",
+        "USER": "{{$.rds_db_user}}",
+        "PASSWORD": "{{$.rds_db_password}}",
+        "HOST": "{{$.rds_db_host}}",
+        "PORT": "{{$.rds_db_port}}",
+        "ATOMIC_REQUESTS": True,
+        "CONN_MAX_AGE": 600,
+    },
+}
+
+# ------------------------------------------------------------------------------
+# AWS S3 - Django Storages S3
+# ------------------------------------------------------------------------------
+AWS_STORAGE_BUCKET_NAME = "{{$.aws_s3_bucket_name}}"
+AWS_S3_REGION_NAME = "{{$.aws_s3_direct_region}}"
+AWS_S3_ENDPOINT_URL = f"https://s3.{{$.aws_s3_direct_region}}.amazonaws.com"
+AWS_DEFAULT_ACL = "public-read"
+
+# ------------------------------------------------------------------------------
+# EMAIL SETTINGS
+# ------------------------------------------------------------------------------
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "{{$.email_host}}"
+EMAIL_HOST_USER = "{{$.email_host_user}}"
+EMAIL_HOST_PASSWORD = "{{$.email_host_password}}"
+EMAIL_PORT = {{$.email_host_port}}
+EMAIL_USE_TLS = "{{$.email_host_use_tls}}".lower() == "true"
+
+# ------------------------------------------------------------------------------
+# CELERY
+# ------------------------------------------------------------------------------
+CELERY_TASK_DEFAULT_QUEUE = f"{APP_LABEL.lower().replace(' ', '-')}-{ENVIRONMENT}"
+CELERY_BROKER_URL = "redis://{{$.redis_host}}:{{$.redis_port}}/{{$.redis_db}}"
+CELERY_RESULT_BACKEND = "redis://{{$.redis_host}}:{{$.redis_port}}/{{$.redis_db}}"
+
+# ------------------------------------------------------------------------------
+# REDIS
+# ------------------------------------------------------------------------------
+# Setting needed for redis health check
+REDIS_URL = f"redis://{{$.redis_host}}:{{$.redis_port}}/{{$.redis_db}}"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "MAX_ENTRIES": 1000,
+        },
+    }
+}
+
+# ------------------------------------------------------------------------------
+# DJANGO SECURITY
+# https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
+# ------------------------------------------------------------------------------
+SECRET_KEY = "{{$.django_secret_key}}"
+ALLOWED_HOSTS = ["*"]
+
+# disable django DEBUG if we run celery worker
+if "celery" in sys.argv[0]:
+    DEBUG = False
+
+if DEBUG:
+    # Dev tools settings
+    from .common.dev_tools import *
+
+

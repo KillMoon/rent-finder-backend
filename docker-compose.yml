@@ -1,0 +1,58 @@
+version: '3.7'
+
+volumes:
+  ipython_history: {}
+
+services:
+  # ################################################################################
+  # Database
+  # ################################################################################
+  postgres:
+    image: postgres:13
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h postgres -t 5 -U ${COMPOSE_PROJECT_NAME}-user || false"]
+      interval: 1s
+      timeout: 5s
+      retries: 10
+    environment:
+      - POSTGRES_DB=${COMPOSE_PROJECT_NAME}-dev
+      - POSTGRES_USER=${COMPOSE_PROJECT_NAME}-user
+      - POSTGRES_PASSWORD=manager
+
+  # ################################################################################
+  # Caching
+  # ################################################################################
+  redis:
+    image: redis:6.0.5
+    ports:
+      - "6379:6379"
+
+  # ################################################################################
+  # Django Backend / API
+  # ################################################################################
+  web: &web
+    image: "${COMPOSE_PROJECT_NAME}"
+    entrypoint: /cnb/lifecycle/launcher
+    volumes:
+      - ./:/workspace
+      - ipython_history:/root/.ipython/profile_default
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.local
+    ports:
+      - "8000:8000"
+    command: python3 manage.py runserver_plus 0.0.0.0:8000 --reloader-type stat
+    depends_on:
+      postgres:
+          condition: service_healthy
+      redis:
+          condition: service_started
+  # ################################################################################
+  # Celery scheduler/worker
+  # ################################################################################
+  celery:
+    <<: *web
+    # start both worker and beat in same CMD for simplicity
+    command: celery --app config.celery:app worker --beat --scheduler=django --loglevel=info
+    ports: []

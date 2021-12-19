@@ -1,0 +1,9 @@
+[[build.env]]
+name =  "GOOGLE_RUNTIME_VERSION"
+value = "3.10"
+
+# Excluide .venv folder, it make builder think that this is a dotnet project
+[build]
+exclude = [
+    ".venv",
+]
